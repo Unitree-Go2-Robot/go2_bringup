@@ -16,26 +16,65 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import LaunchConfiguration
+
+
+def start_hesai_lidar(context):
+    if (LaunchConfiguration('hesai_lidar').perform(context) == 'true' or
+            LaunchConfiguration('hesai_lidar').perform(context) == 'True'):
+        return [IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([os.path.join(
+                get_package_share_directory('hesai_ros_driver'),
+                'launch/'), 'start.py'])
+        )]
+
+    return []
+
+
+def start_livox_lidar(context):
+    if (LaunchConfiguration('livox_lidar').perform(context) == 'true' or
+            LaunchConfiguration('livox_lidar').perform(context) == 'True'):
+        return [IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([os.path.join(
+                get_package_share_directory('livox_ros_driver2'),
+                'launch/'), 'rviz_MID360_launch.launch.py'])
+        )]
+
+    return []
+
+
+def start_realsense(context):
+    if (LaunchConfiguration('realsense').perform(context) == 'true' or
+            LaunchConfiguration('realsense').perform(context) == 'True'):
+        return [IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([os.path.join(
+                get_package_share_directory('realsense2_camera'),
+                'launch/'), 'rs_launch.py'])
+        )]
+
+    return []
 
 
 def generate_launch_description():
-    lidar = LaunchConfiguration('lidar')
-    realsense = LaunchConfiguration('realsense')
-    rviz = LaunchConfiguration('rviz')
 
-    declare_lidar_cmd = DeclareLaunchArgument(
-        'lidar',
-        default_value='False',
+    declare_hesai_cmd = DeclareLaunchArgument(
+        'hesai_lidar',
+        default_value='false',
         description='Launch hesai lidar driver'
+    )
+
+    declare_livox_cmd = DeclareLaunchArgument(
+        'livox_lidar',
+        default_value='false',
+        description='Launch livox lidar driver'
     )
 
     declare_realsense_cmd = DeclareLaunchArgument(
         'realsense',
-        default_value='False',
+        default_value='false',
         description='Launch realsense driver'
     )
 
@@ -57,35 +96,23 @@ def generate_launch_description():
             'launch/'), 'go2_driver.launch.py'])
     )
 
-    lidar_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([os.path.join(
-            get_package_share_directory('hesai_ros_driver'),
-            'launch/'), 'start.py']),
-        condition=IfCondition(PythonExpression([lidar]))
-    )
-
-    realsense_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([os.path.join(
-            get_package_share_directory('realsense2_camera'),
-            'launch/'), 'rs_launch.py']),
-        condition=IfCondition(PythonExpression([realsense]))
-    )
-
     rviz_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
             get_package_share_directory('go2_rviz'),
             'launch/'), 'rviz.launch.py']),
-        condition=IfCondition(PythonExpression([rviz]))
+        condition=IfCondition(LaunchConfiguration('rviz'))
     )
 
     ld = LaunchDescription()
-    ld.add_action(declare_lidar_cmd)
+    ld.add_action(declare_hesai_cmd)
+    ld.add_action(declare_livox_cmd)
     ld.add_action(declare_realsense_cmd)
     ld.add_action(declare_rviz_cmd)
     ld.add_action(robot_description_cmd)
-    ld.add_action(lidar_cmd)
-    ld.add_action(realsense_cmd)
     ld.add_action(driver_cmd)
+    ld.add_action(OpaqueFunction(function=start_hesai_lidar))
+    ld.add_action(OpaqueFunction(function=start_livox_lidar))
+    ld.add_action(OpaqueFunction(function=start_realsense))
     ld.add_action(rviz_cmd)
 
     return ld
